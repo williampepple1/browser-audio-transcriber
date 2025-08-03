@@ -74,15 +74,15 @@ Once published, you'll be able to install directly from the Chrome Web Store.
 - **Service Worker**: Background script handles audio capture and transcription
 - **Content Script**: Injected into web pages for enhanced audio detection
 - **Web Speech API**: Uses Chrome's built-in speech recognition
-- **Tab Capture API**: Captures audio directly from browser tabs
+- **MediaDevices API**: Captures audio through microphone (picks up speaker audio)
 
 ### Permissions
 
 - `activeTab`: Access to the currently active tab
 - `tabs`: Tab management and information
 - `storage`: Local data storage
-- `tabCapture`: Audio capture from tabs
 - `scripting`: Dynamic script injection
+- `downloads`: File download functionality
 
 ### File Structure
 

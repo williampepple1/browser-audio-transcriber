@@ -7,8 +7,8 @@
     "activeTab",
     "tabs",
     "storage",
-    "tabCapture",
-    "scripting"
+    "scripting",
+    "downloads"
   ],
   "host_permissions": [
     "http://*/*",

@@ -1,9 +1,22 @@
 // Content script for audio transcription support
 console.log('Audio Transcriber content script loaded');
 
+let mediaRecorder = null;
+let audioChunks = [];
+let recognition = null;
+let isRecordingActive = false;
+
 // Listen for messages from the background script
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   switch (request.action) {
+    case 'startRecording':
+      startRecording().then(sendResponse);
+      return true; // Keep message channel open for async response
+
+    case 'stopRecording':
+      stopRecording().then(sendResponse);
+      return true; // Keep message channel open for async response
+
     case 'getAudioElements':
       // Find all audio and video elements on the page
       const audioElements = document.querySelectorAll('audio, video');
@@ -33,6 +46,143 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       sendResponse({ error: 'Unknown action' });
   }
 });
+
+// Start recording function
+async function startRecording() {
+  try {
+    isRecordingActive = true;
+    
+    // Initialize speech recognition
+    if (!initializeSpeechRecognition()) {
+      throw new Error('Speech recognition not supported');
+    }
+
+    // Start speech recognition
+    recognition.start();
+
+    // Try to capture audio from the page
+    await startAudioCapture();
+
+    console.log('Recording started successfully');
+    return { success: true };
+
+  } catch (error) {
+    console.error('Error starting recording:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+// Stop recording function
+async function stopRecording() {
+  try {
+    isRecordingActive = false;
+
+    if (recognition) {
+      recognition.stop();
+      recognition = null;
+    }
+
+    if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+      mediaRecorder.stop();
+    }
+
+    // Stop all tracks in the stream
+    if (mediaRecorder && mediaRecorder.stream) {
+      mediaRecorder.stream.getTracks().forEach(track => track.stop());
+    }
+
+    console.log('Recording stopped successfully');
+    return { success: true };
+
+  } catch (error) {
+    console.error('Error stopping recording:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+// Initialize speech recognition
+function initializeSpeechRecognition() {
+  if (!('webkitSpeechRecognition' in window)) {
+    console.error('Speech recognition not supported');
+    return false;
+  }
+
+  recognition = new webkitSpeechRecognition();
+  recognition.continuous = true;
+  recognition.interimResults = true;
+  recognition.lang = 'en-US';
+
+  recognition.onresult = function(event) {
+    let interimTranscript = '';
+    let finalTranscript = '';
+
+    for (let i = event.resultIndex; i < event.results.length; i++) {
+      const transcript = event.results[i][0].transcript;
+      if (event.results[i].isFinal) {
+        finalTranscript += transcript + ' ';
+      } else {
+        interimTranscript += transcript;
+      }
+    }
+
+    if (finalTranscript) {
+      // Send transcript to background script
+      chrome.runtime.sendMessage({
+        action: 'transcriptUpdate',
+        transcript: finalTranscript
+      });
+    }
+  };
+
+  recognition.onerror = function(event) {
+    console.error('Speech recognition error:', event.error);
+  };
+
+  recognition.onend = function() {
+    // Restart recognition if still recording
+    if (isRecordingActive) {
+      recognition.start();
+    }
+  };
+
+  return true;
+}
+
+// Start audio capture
+async function startAudioCapture() {
+  try {
+    // Try to capture microphone audio (this will pick up audio from speakers)
+    const stream = await navigator.mediaDevices.getUserMedia({ 
+      audio: {
+        echoCancellation: false,
+        noiseSuppression: false,
+        autoGainControl: false
+      }
+    });
+
+    // Set up media recorder
+    mediaRecorder = new MediaRecorder(stream);
+    audioChunks = [];
+
+    mediaRecorder.ondataavailable = function(event) {
+      if (event.data.size > 0) {
+        audioChunks.push(event.data);
+      }
+    };
+
+    mediaRecorder.onstop = function() {
+      const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+      console.log('Audio recording completed, size:', audioBlob.size);
+    };
+
+    mediaRecorder.start();
+    return true;
+
+  } catch (error) {
+    console.error('Audio capture failed:', error);
+    return false;
+  }
+}
 
 // Monitor for new audio/video elements being added to the page
 const observer = new MutationObserver((mutations) => {
