@@ -5,6 +5,8 @@ document.addEventListener('DOMContentLoaded', function() {
   const statusText = document.getElementById('status-text');
   const statusIndicator = document.getElementById('status-indicator');
   const transcriptPreview = document.getElementById('transcript-preview');
+  const statusCard = document.getElementById('statusCard');
+  const waveAnimation = document.getElementById('wave-animation');
 
   let isRecording = false;
   let currentTranscript = '';
@@ -21,32 +23,49 @@ document.addEventListener('DOMContentLoaded', function() {
   });
 
   playBtn.addEventListener('click', function() {
+    // Add loading state
+    playBtn.disabled = true;
+    playBtn.querySelector('.btn-text').textContent = 'Starting...';
+    
     chrome.runtime.sendMessage({action: 'startRecording'}, function(response) {
       if (response && response.success) {
         setRecordingState(true);
-        statusText.textContent = 'Recording...';
+        statusText.textContent = 'Recording in progress...';
+        showNotification('Recording started successfully!', 'success');
       } else {
-        statusText.textContent = 'Error: ' + (response?.error || 'Failed to start recording');
+        setRecordingState(false);
+        statusText.textContent = 'Ready to transcribe';
+        showNotification('Error: ' + (response?.error || 'Failed to start recording'), 'error');
       }
     });
   });
 
   stopBtn.addEventListener('click', function() {
+    // Add loading state
+    stopBtn.disabled = true;
+    stopBtn.querySelector('.btn-text').textContent = 'Stopping...';
+    
     chrome.runtime.sendMessage({action: 'stopRecording'}, function(response) {
       if (response && response.success) {
         setRecordingState(false);
         currentTranscript = response.transcript || '';
         updateTranscriptPreview();
-        statusText.textContent = 'Recording stopped. Transcript ready.';
-        downloadBtn.style.display = 'block';
+        statusText.textContent = 'Recording completed';
+        showNotification('Recording stopped. Transcript ready!', 'success');
       } else {
-        statusText.textContent = 'Error: ' + (response?.error || 'Failed to stop recording');
+        setRecordingState(true);
+        statusText.textContent = 'Recording in progress...';
+        showNotification('Error: ' + (response?.error || 'Failed to stop recording'), 'error');
       }
     });
   });
 
   downloadBtn.addEventListener('click', function() {
     if (currentTranscript) {
+      // Add loading state
+      downloadBtn.disabled = true;
+      downloadBtn.querySelector('.btn-text').textContent = 'Downloading...';
+      
       const blob = new Blob([currentTranscript], {type: 'text/plain'});
       const url = URL.createObjectURL(blob);
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
@@ -66,30 +85,93 @@ document.addEventListener('DOMContentLoaded', function() {
           a.click();
         }
         URL.revokeObjectURL(url);
+        
+        // Reset button state
+        downloadBtn.disabled = false;
+        downloadBtn.querySelector('.btn-text').textContent = 'Download Transcript';
+        showNotification('Transcript downloaded successfully!', 'success');
       });
     }
   });
 
   function setRecordingState(recording) {
     isRecording = recording;
-    playBtn.disabled = recording;
-    stopBtn.disabled = !recording;
-    statusIndicator.style.display = recording ? 'inline-block' : 'none';
     
-    if (!recording) {
-      downloadBtn.style.display = currentTranscript ? 'block' : 'none';
+    if (recording) {
+      // Recording state
+      playBtn.disabled = true;
+      stopBtn.disabled = false;
+      playBtn.querySelector('.btn-text').textContent = 'Recording...';
+      stopBtn.querySelector('.btn-text').textContent = 'Stop';
+      
+      statusIndicator.classList.remove('hidden');
+      waveAnimation.classList.remove('hidden');
+      statusCard.classList.add('recording');
+      downloadBtn.classList.add('hidden');
+      
+      // Add fade-in animation
+      statusCard.classList.add('fade-in');
     } else {
-      downloadBtn.style.display = 'none';
+      // Stopped state
+      playBtn.disabled = false;
+      stopBtn.disabled = true;
+      playBtn.querySelector('.btn-text').textContent = 'Start Recording';
+      stopBtn.querySelector('.btn-text').textContent = 'Stop';
+      
+      statusIndicator.classList.add('hidden');
+      waveAnimation.classList.add('hidden');
+      statusCard.classList.remove('recording');
+      
+      if (currentTranscript) {
+        downloadBtn.classList.remove('hidden');
+        downloadBtn.classList.add('fade-in');
+      }
     }
   }
 
   function updateTranscriptPreview() {
     if (currentTranscript) {
       transcriptPreview.textContent = currentTranscript;
-      transcriptPreview.style.display = 'block';
+      transcriptPreview.classList.remove('hidden');
+      transcriptPreview.classList.add('fade-in');
     } else {
-      transcriptPreview.style.display = 'none';
+      transcriptPreview.classList.add('hidden');
     }
+  }
+
+  function showNotification(message, type = 'info') {
+    // Create notification element
+    const notification = document.createElement('div');
+    notification.className = `notification notification-${type} fade-in`;
+    notification.textContent = message;
+    notification.style.cssText = `
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      background: ${type === 'success' ? '#10b981' : type === 'error' ? '#ef4444' : '#3b82f6'};
+      color: white;
+      padding: 12px 16px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 500;
+      z-index: 1000;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+      max-width: 300px;
+      word-wrap: break-word;
+    `;
+    
+    document.body.appendChild(notification);
+    
+    // Remove notification after 3 seconds
+    setTimeout(() => {
+      notification.style.opacity = '0';
+      notification.style.transform = 'translateX(100%)';
+      setTimeout(() => {
+        if (notification.parentNode) {
+          notification.parentNode.removeChild(notification);
+        }
+      }, 300);
+    }, 3000);
   }
 
   // Listen for transcript updates from background script
@@ -98,5 +180,20 @@ document.addEventListener('DOMContentLoaded', function() {
       currentTranscript = request.transcript;
       updateTranscriptPreview();
     }
+  });
+
+  // Add hover effects for buttons
+  [playBtn, stopBtn, downloadBtn].forEach(btn => {
+    btn.addEventListener('mouseenter', function() {
+      if (!btn.disabled) {
+        btn.style.transform = 'translateY(-2px)';
+      }
+    });
+    
+    btn.addEventListener('mouseleave', function() {
+      if (!btn.disabled) {
+        btn.style.transform = 'translateY(0)';
+      }
+    });
   });
 }); 
