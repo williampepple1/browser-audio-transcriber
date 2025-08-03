@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Audio Transcriber Test Page</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            min-height: 100vh;
+        }
+        
+        .container {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 30px;
+            border-radius: 15px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        }
+        
+        .test-section {
+            margin-bottom: 30px;
+            padding: 20px;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 10px;
+        }
+        
+        .test-section h2 {
+            margin-top: 0;
+            color: #ffd700;
+        }
+        
+        audio, video {
+            width: 100%;
+            margin: 10px 0;
+            border-radius: 8px;
+        }
+        
+        .instructions {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        
+        .instructions ol {
+            margin: 10px 0;
+            padding-left: 20px;
+        }
+        
+        .instructions li {
+            margin: 8px 0;
+        }
+        
+        .status {
+            text-align: center;
+            font-weight: bold;
+            padding: 10px;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+        
+        .success {
+            background: rgba(76, 175, 80, 0.3);
+            border: 1px solid #4CAF50;
+        }
+        
+        .warning {
+            background: rgba(255, 193, 7, 0.3);
+            border: 1px solid #FFC107;
+        }
+        
+        .error {
+            background: rgba(244, 67, 54, 0.3);
+            border: 1px solid #f44336;
+        }
+        
+        button {
+            background: linear-gradient(45deg, #4CAF50, #45a049);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: bold;
+            margin: 5px;
+            transition: all 0.3s ease;
+        }
+        
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(76, 175, 80, 0.4);
+        }
+        
+        .sample-text {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 15px;
+            border-radius: 8px;
+            font-style: italic;
+            line-height: 1.6;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎤 Audio Transcriber Test Page</h1>
+        
+        <div class="instructions">
+            <h2>How to Test the Extension</h2>
+            <ol>
+                <li>Make sure the Browser Audio Transcriber extension is installed and enabled</li>
+                <li>Click the extension icon in your Chrome toolbar</li>
+                <li>Click "▶ Play" to start recording</li>
+                <li>Play one of the audio samples below</li>
+                <li>Click "⏹ Stop" when done</li>
+                <li>Click "📥 Download Transcript" to save the transcription</li>
+            </ol>
+        </div>
+        
+        <div class="test-section">
+            <h2>🎵 Test Audio 1: Sample Music</h2>
+            <p>This is a sample audio file for testing transcription. The audio contains clear speech that should be easily transcribed.</p>
+            <audio controls>
+                <source src="https://www.soundjay.com/misc/sounds/bell-ringing-05.wav" type="audio/wav">
+                Your browser does not support the audio element.
+            </audio>
+            <div class="sample-text">
+                <strong>Expected transcription:</strong> "Bell ringing sound effect"
+            </div>
+        </div>
+        
+        <div class="test-section">
+            <h2>🎬 Test Video 1: Sample Video with Audio</h2>
+            <p>This video contains both visual and audio content for testing.</p>
+            <video controls width="100%">
+                <source src="https://sample-videos.com/zip/10/mp4/SampleVideo_1280x720_1mb.mp4" type="video/mp4">
+                Your browser does not support the video element.
+            </video>
+        </div>
+        
+        <div class="test-section">
+            <h2>🎤 Test Audio 2: Speech Sample</h2>
+            <p>This audio contains clear speech for testing transcription accuracy.</p>
+            <audio controls>
+                <source src="https://www2.cs.uic.edu/~i101/SoundFiles/BabyElephantWalk60.wav" type="audio/wav">
+                Your browser does not support the audio element.
+            </audio>
+        </div>
+        
+        <div class="test-section">
+            <h2>🔧 Manual Test</h2>
+            <p>You can also test by speaking into your microphone while playing audio:</p>
+            <button onclick="startManualTest()">Start Manual Test</button>
+            <button onclick="stopManualTest()">Stop Manual Test</button>
+            <div id="manualTestStatus" class="status" style="display: none;"></div>
+        </div>
+        
+        <div class="test-section">
+            <h2>📋 Test Results</h2>
+            <div id="testResults">
+                <p>Run the tests above and check your transcriptions for accuracy.</p>
+            </div>
+        </div>
+        
+        <div class="status success">
+            ✅ This page is ready for testing the Audio Transcriber extension!
+        </div>
+        
+        <div class="status warning">
+            ⚠️ Note: Some audio files may not load due to CORS restrictions. Try using YouTube or other streaming services for better testing.
+        </div>
+    </div>
+
+    <script>
+        let manualTestActive = false;
+        
+        function startManualTest() {
+            manualTestActive = true;
+            const status = document.getElementById('manualTestStatus');
+            status.textContent = '🎤 Manual test active - speak clearly while audio plays';
+            status.className = 'status success';
+            status.style.display = 'block';
+        }
+        
+        function stopManualTest() {
+            manualTestActive = false;
+            const status = document.getElementById('manualTestStatus');
+            status.textContent = '⏹ Manual test stopped';
+            status.className = 'status warning';
+            status.style.display = 'block';
+        }
+        
+        // Check if extension is installed
+        function checkExtension() {
+            if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.id) {
+                console.log('Extension environment detected');
+            } else {
+                console.log('Extension not detected');
+            }
+        }
+        
+        // Run check when page loads
+        window.addEventListener('load', checkExtension);
+    </script>
+</body>
+</html> 
