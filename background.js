@@ -85,6 +85,7 @@ async function stopRecording() {
 
 // Get current status
 function getStatus() {
+  console.log('Status requested - isRecording:', isRecording, 'transcript length:', currentTranscript.length);
   return {
     isRecording: isRecording,
     transcript: currentTranscript

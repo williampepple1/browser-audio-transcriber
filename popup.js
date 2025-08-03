@@ -13,11 +13,22 @@ document.addEventListener('DOMContentLoaded', function() {
 
   // Check current status when popup opens
   chrome.runtime.sendMessage({action: 'getStatus'}, function(response) {
-    if (response && response.isRecording) {
-      setRecordingState(true);
+    console.log('Popup opened, current status:', response);
+    if (response) {
+      isRecording = response.isRecording;
       if (response.transcript) {
         currentTranscript = response.transcript;
-        updateTranscriptPreview();
+      }
+      setRecordingState(isRecording);
+      updateTranscriptPreview();
+      
+      // Update status text based on current state
+      if (isRecording) {
+        statusText.textContent = 'Recording in progress...';
+      } else if (currentTranscript) {
+        statusText.textContent = 'Recording completed';
+      } else {
+        statusText.textContent = 'Ready to transcribe';
       }
     }
   });
@@ -177,10 +188,23 @@ document.addEventListener('DOMContentLoaded', function() {
   // Listen for transcript updates from background script
   chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
     if (request.action === 'transcriptUpdate') {
+      console.log('Received transcript update:', request.transcript.length, 'characters');
       currentTranscript = request.transcript;
       updateTranscriptPreview();
     }
   });
+
+  // Periodically check status to ensure popup stays in sync
+  setInterval(function() {
+    if (isRecording) {
+      chrome.runtime.sendMessage({action: 'getStatus'}, function(response) {
+        if (response && response.transcript !== currentTranscript) {
+          currentTranscript = response.transcript;
+          updateTranscriptPreview();
+        }
+      });
+    }
+  }, 2000); // Check every 2 seconds when recording
 
   // Add hover effects for buttons
   [playBtn, stopBtn, downloadBtn].forEach(btn => {
