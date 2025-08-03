@@ -33,6 +33,15 @@ document.addEventListener('DOMContentLoaded', function() {
     }
   });
 
+  // Also check storage for any existing transcript
+  chrome.storage.local.get(['currentTranscript', 'isFinal', 'isRecording'], function(result) {
+    if (result.currentTranscript && result.currentTranscript !== currentTranscript) {
+      console.log('Found existing transcript in storage:', result.currentTranscript.length, 'characters');
+      currentTranscript = result.currentTranscript;
+      updateTranscriptPreview(result.isFinal);
+    }
+  });
+
   playBtn.addEventListener('click', function() {
     // Add loading state
     playBtn.disabled = true;
@@ -140,20 +149,11 @@ document.addEventListener('DOMContentLoaded', function() {
     }
   }
 
-  function updateTranscriptPreview(isFinal = true) {
+  function updateTranscriptPreview() {
     if (currentTranscript) {
       transcriptPreview.textContent = currentTranscript;
       transcriptPreview.classList.remove('hidden');
       transcriptPreview.classList.add('fade-in');
-      
-      // Add visual indication for interim vs final results
-      if (!isFinal) {
-        transcriptPreview.style.fontStyle = 'italic';
-        transcriptPreview.style.opacity = '0.8';
-      } else {
-        transcriptPreview.style.fontStyle = 'normal';
-        transcriptPreview.style.opacity = '1';
-      }
     } else {
       transcriptPreview.classList.add('hidden');
     }
@@ -197,23 +197,24 @@ document.addEventListener('DOMContentLoaded', function() {
   // Listen for transcript updates from background script
   chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
     if (request.action === 'transcriptUpdate') {
-      console.log('Received transcript update:', request.transcript.length, 'characters', 'isFinal:', request.isFinal);
+      console.log('Received transcript update:', request.transcript.length, 'characters');
       currentTranscript = request.transcript;
-      updateTranscriptPreview(request.isFinal);
+      updateTranscriptPreview();
     }
   });
 
-  // Periodically check status to ensure popup stays in sync
+  // Periodically check for transcript updates from storage (backup method)
   setInterval(function() {
     if (isRecording) {
-      chrome.runtime.sendMessage({action: 'getStatus'}, function(response) {
-        if (response && response.transcript !== currentTranscript) {
-          currentTranscript = response.transcript;
-          updateTranscriptPreview();
+      chrome.storage.local.get(['currentTranscript', 'isFinal', 'isRecording'], function(result) {
+        if (result.currentTranscript && result.currentTranscript !== currentTranscript) {
+          console.log('Received transcript update from storage:', result.currentTranscript.length, 'characters', 'isFinal:', result.isFinal);
+          currentTranscript = result.currentTranscript;
+          updateTranscriptPreview(result.isFinal);
         }
       });
     }
-  }, 2000); // Check every 2 seconds when recording
+  }, 1000); // Check every 1 second when recording
 
   // Add hover effects for buttons
   [playBtn, stopBtn, downloadBtn].forEach(btn => {

@@ -34,12 +34,18 @@ async function startRecording() {
     try {
       const response = await chrome.tabs.sendMessage(tab.id, { action: 'startRecording' });
       
-      if (response && response.success) {
-        isRecording = true;
-        currentTranscript = '';
-        console.log('Recording started successfully');
-        return { success: true };
-      } else {
+             if (response && response.success) {
+         isRecording = true;
+         currentTranscript = '';
+         // Clear storage for new recording
+         chrome.storage.local.set({
+           currentTranscript: '',
+           isFinal: true,
+           isRecording: true
+         });
+         console.log('Recording started successfully');
+         return { success: true };
+       } else {
         throw new Error(response?.error || 'Failed to start recording');
       }
     } catch (messageError) {
@@ -74,8 +80,14 @@ async function stopRecording() {
       }
     }
 
-    console.log('Recording stopped successfully');
-    return { success: true, transcript: currentTranscript };
+         console.log('Recording stopped successfully');
+     // Update storage with final transcript
+     chrome.storage.local.set({
+       currentTranscript: currentTranscript,
+       isFinal: true,
+       isRecording: false
+     });
+     return { success: true, transcript: currentTranscript };
 
   } catch (error) {
     console.error('Error stopping recording:', error);
@@ -109,26 +121,27 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
     case 'transcriptUpdate':
       // Handle transcript updates from content script
+      // Only accumulate final results to avoid duplicates
       if (request.isFinal) {
-        // If this is a final result, append to the existing transcript
         currentTranscript += request.transcript;
         
-        // Forward to popup with the complete accumulated transcript
-        chrome.runtime.sendMessage({
-          action: 'transcriptUpdate',
-          transcript: currentTranscript,
-          isFinal: true
+        // Store the complete transcript in storage
+        chrome.storage.local.set({
+          currentTranscript: currentTranscript,
+          isFinal: true,
+          isRecording: isRecording
         });
-      } else {
-        // For interim results, show the accumulated final transcript + current interim
-        const displayTranscript = currentTranscript + request.transcript;
         
-        // Forward to popup for real-time display
-        chrome.runtime.sendMessage({
-          action: 'transcriptUpdate',
-          transcript: displayTranscript,
-          isFinal: false
-        });
+        // Send the complete transcript to popup
+        try {
+          chrome.runtime.sendMessage({
+            action: 'transcriptUpdate',
+            transcript: currentTranscript,
+            isFinal: true
+          });
+        } catch (e) {
+          // Popup might not be open, that's okay
+        }
       }
       break;
 
