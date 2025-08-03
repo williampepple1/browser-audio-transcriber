@@ -12,16 +12,39 @@ async function startRecording() {
       throw new Error('No active tab found');
     }
 
+    // Check if we can inject scripts on this tab
+    if (tab.url.startsWith('chrome://') || tab.url.startsWith('chrome-extension://')) {
+      throw new Error('Cannot record on Chrome system pages. Please navigate to a regular webpage.');
+    }
+
+    // First, ensure content script is injected
+    try {
+      await chrome.scripting.executeScript({
+        target: { tabId: tab.id },
+        files: ['content.js']
+      });
+    } catch (injectionError) {
+      console.log('Content script already injected or injection failed:', injectionError);
+    }
+
+    // Wait a moment for the script to initialize
+    await new Promise(resolve => setTimeout(resolve, 100));
+
     // Send message to content script to start recording
-    const response = await chrome.tabs.sendMessage(tab.id, { action: 'startRecording' });
-    
-    if (response && response.success) {
-      isRecording = true;
-      currentTranscript = '';
-      console.log('Recording started successfully');
-      return { success: true };
-    } else {
-      throw new Error(response?.error || 'Failed to start recording');
+    try {
+      const response = await chrome.tabs.sendMessage(tab.id, { action: 'startRecording' });
+      
+      if (response && response.success) {
+        isRecording = true;
+        currentTranscript = '';
+        console.log('Recording started successfully');
+        return { success: true };
+      } else {
+        throw new Error(response?.error || 'Failed to start recording');
+      }
+    } catch (messageError) {
+      console.error('Failed to communicate with content script:', messageError);
+      throw new Error('Could not start recording. Please refresh the page and try again.');
     }
 
   } catch (error) {
@@ -39,11 +62,15 @@ async function stopRecording() {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
     
     if (tab) {
-      // Send message to content script to stop recording
-      const response = await chrome.tabs.sendMessage(tab.id, { action: 'stopRecording' });
-      
-      if (!response || !response.success) {
-        console.warn('Failed to stop recording in content script');
+      try {
+        // Send message to content script to stop recording
+        const response = await chrome.tabs.sendMessage(tab.id, { action: 'stopRecording' });
+        
+        if (!response || !response.success) {
+          console.warn('Failed to stop recording in content script');
+        }
+      } catch (messageError) {
+        console.warn('Could not send stop message to content script:', messageError);
       }
     }
 

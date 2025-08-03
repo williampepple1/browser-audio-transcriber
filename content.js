@@ -1,10 +1,15 @@
 // Content script for audio transcription support
-console.log('Audio Transcriber content script loaded');
+// Prevent multiple injections
+if (window.audioTranscriberLoaded) {
+  console.log('Audio Transcriber content script already loaded');
+} else {
+  window.audioTranscriberLoaded = true;
+  console.log('Audio Transcriber content script loaded');
 
-let mediaRecorder = null;
-let audioChunks = [];
-let recognition = null;
-let isRecordingActive = false;
+  let mediaRecorder = null;
+  let audioChunks = [];
+  let recognition = null;
+  let isRecordingActive = false;
 
 // Listen for messages from the background script
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
@@ -286,9 +291,10 @@ function getAllMediaStreams() {
   return streams;
 }
 
-// Expose helper functions to the page context
-window.audioTranscriberHelpers = {
-  getAllMediaStreams,
-  showRecordingIndicator,
-  hideRecordingIndicator
-}; 
+  // Expose helper functions to the page context
+  window.audioTranscriberHelpers = {
+    getAllMediaStreams,
+    showRecordingIndicator,
+    hideRecordingIndicator
+  };
+} 

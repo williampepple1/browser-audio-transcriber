@@ -109,6 +109,11 @@ browser-notetaker/
 - Check that the page has audio content
 - Try refreshing the page
 
+**"Could not establish connection. Receiving end does not exist."**
+- Refresh the webpage you're trying to record from
+- Make sure you're not on a Chrome system page (chrome:// URLs)
+- Try navigating to a different webpage and back
+
 **"Failed to capture tab audio"**
 - Make sure the tab has audio playing
 - Check that the tab is not muted
