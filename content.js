@@ -62,8 +62,25 @@ async function startRecording() {
       throw new Error('Speech recognition not supported');
     }
 
-    // Start speech recognition
-    recognition.start();
+    // Start speech recognition with error handling
+    try {
+      recognition.start();
+    } catch (startError) {
+      console.error('Failed to start recognition:', startError);
+      // If recognition is already started, try to stop and restart
+      if (startError.message.includes('already started')) {
+        try {
+          recognition.stop();
+          await new Promise(resolve => setTimeout(resolve, 500));
+          recognition.start();
+        } catch (restartError) {
+          console.error('Failed to restart recognition:', restartError);
+          throw new Error('Could not start speech recognition');
+        }
+      } else {
+        throw startError;
+      }
+    }
 
     // Try to capture audio from the page
     await startAudioCapture();
@@ -73,6 +90,7 @@ async function startRecording() {
 
   } catch (error) {
     console.error('Error starting recording:', error);
+    isRecordingActive = false;
     return { success: false, error: error.message };
   }
 }
@@ -141,12 +159,59 @@ function initializeSpeechRecognition() {
 
   recognition.onerror = function(event) {
     console.error('Speech recognition error:', event.error);
+    
+    // Handle specific errors
+    if (event.error === 'no-speech') {
+      // Restart recognition after a short delay for no-speech errors
+      if (isRecordingActive) {
+        setTimeout(() => {
+          try {
+            if (recognition && isRecordingActive) {
+              recognition.start();
+            }
+          } catch (e) {
+            console.error('Failed to restart recognition after no-speech error:', e);
+          }
+        }, 1000);
+      }
+    } else if (event.error === 'network') {
+      // For network errors, try to restart after a longer delay
+      if (isRecordingActive) {
+        setTimeout(() => {
+          try {
+            if (recognition && isRecordingActive) {
+              recognition.start();
+            }
+          } catch (e) {
+            console.error('Failed to restart recognition after network error:', e);
+          }
+        }, 3000);
+      }
+    }
   };
 
   recognition.onend = function() {
-    // Restart recognition if still recording
-    if (isRecordingActive) {
-      recognition.start();
+    // Only restart if still recording and recognition is not in an error state
+    if (isRecordingActive && recognition) {
+      // Add a small delay to prevent immediate restart issues
+      setTimeout(() => {
+        try {
+          if (isRecordingActive && recognition) {
+            recognition.start();
+          }
+        } catch (e) {
+          console.error('Failed to restart recognition:', e);
+          // If restart fails, try to create a new instance
+          if (isRecordingActive) {
+            console.log('Creating new recognition instance...');
+            recognition = null;
+            initializeSpeechRecognition();
+            if (recognition) {
+              recognition.start();
+            }
+          }
+        }
+      }, 100);
     }
   };
 
