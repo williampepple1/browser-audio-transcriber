@@ -140,11 +140,20 @@ document.addEventListener('DOMContentLoaded', function() {
     }
   }
 
-  function updateTranscriptPreview() {
+  function updateTranscriptPreview(isFinal = true) {
     if (currentTranscript) {
       transcriptPreview.textContent = currentTranscript;
       transcriptPreview.classList.remove('hidden');
       transcriptPreview.classList.add('fade-in');
+      
+      // Add visual indication for interim vs final results
+      if (!isFinal) {
+        transcriptPreview.style.fontStyle = 'italic';
+        transcriptPreview.style.opacity = '0.8';
+      } else {
+        transcriptPreview.style.fontStyle = 'normal';
+        transcriptPreview.style.opacity = '1';
+      }
     } else {
       transcriptPreview.classList.add('hidden');
     }
@@ -188,9 +197,9 @@ document.addEventListener('DOMContentLoaded', function() {
   // Listen for transcript updates from background script
   chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
     if (request.action === 'transcriptUpdate') {
-      console.log('Received transcript update:', request.transcript.length, 'characters');
+      console.log('Received transcript update:', request.transcript.length, 'characters', 'isFinal:', request.isFinal);
       currentTranscript = request.transcript;
-      updateTranscriptPreview();
+      updateTranscriptPreview(request.isFinal);
     }
   });
 
