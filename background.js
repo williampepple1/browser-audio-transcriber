@@ -109,22 +109,27 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
     case 'transcriptUpdate':
       // Handle transcript updates from content script
-      // For real-time display, replace the transcript with the latest full version
       if (request.isFinal) {
         // If this is a final result, append to the existing transcript
         currentTranscript += request.transcript;
+        
+        // Forward to popup with the complete accumulated transcript
+        chrome.runtime.sendMessage({
+          action: 'transcriptUpdate',
+          transcript: currentTranscript,
+          isFinal: true
+        });
       } else {
-        // For interim results, replace with the current full transcript
-        // The content script sends the complete transcript including both final and interim parts
-        currentTranscript = request.transcript;
+        // For interim results, show the accumulated final transcript + current interim
+        const displayTranscript = currentTranscript + request.transcript;
+        
+        // Forward to popup for real-time display
+        chrome.runtime.sendMessage({
+          action: 'transcriptUpdate',
+          transcript: displayTranscript,
+          isFinal: false
+        });
       }
-      
-      // Forward to popup if it's open
-      chrome.runtime.sendMessage({
-        action: 'transcriptUpdate',
-        transcript: currentTranscript,
-        isFinal: request.isFinal
-      });
       break;
 
     default:

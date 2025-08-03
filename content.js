@@ -148,13 +148,21 @@ function initializeSpeechRecognition() {
       }
     }
 
-    // Send both interim and final results for real-time display
-    if (finalTranscript || interimTranscript) {
-      const fullTranscript = finalTranscript + interimTranscript;
+    // Send final results (these will be accumulated)
+    if (finalTranscript) {
       chrome.runtime.sendMessage({
         action: 'transcriptUpdate',
-        transcript: fullTranscript,
-        isFinal: !!finalTranscript
+        transcript: finalTranscript,
+        isFinal: true
+      });
+    }
+
+    // Send interim results (these will be shown in real-time but not accumulated)
+    if (interimTranscript) {
+      chrome.runtime.sendMessage({
+        action: 'transcriptUpdate',
+        transcript: interimTranscript,
+        isFinal: false
       });
     }
   };
