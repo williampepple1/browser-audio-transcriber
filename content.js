@@ -269,11 +269,13 @@ const observer = new MutationObserver((mutations) => {
   mutations.forEach((mutation) => {
     mutation.addedNodes.forEach((node) => {
       if (node.nodeType === Node.ELEMENT_NODE) {
-        const audioElements = node.querySelectorAll ? node.querySelectorAll('audio, video') : [];
+        // Check if the node itself is an audio/video element
         if (node.tagName === 'AUDIO' || node.tagName === 'VIDEO') {
-          audioElements.push(node);
+          console.log('New audio/video element detected:', node);
         }
         
+        // Check for audio/video elements within the node
+        const audioElements = node.querySelectorAll ? node.querySelectorAll('audio, video') : [];
         audioElements.forEach(element => {
           console.log('New audio/video element detected:', element);
         });
