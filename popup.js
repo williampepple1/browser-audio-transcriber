@@ -2,6 +2,7 @@ document.addEventListener('DOMContentLoaded', function() {
   const playBtn = document.getElementById('playBtn');
   const stopBtn = document.getElementById('stopBtn');
   const downloadBtn = document.getElementById('downloadBtn');
+  const refreshBtn = document.getElementById('refreshBtn'); // Add reference to the refresh button
   const statusText = document.getElementById('status-text');
   const statusIndicator = document.getElementById('status-indicator');
   const transcriptPreview = document.getElementById('transcript-preview');
@@ -114,6 +115,42 @@ document.addEventListener('DOMContentLoaded', function() {
     }
   });
 
+  // Add event listener for the refresh button
+  refreshBtn.addEventListener('click', function() {
+    // Add loading state
+    refreshBtn.disabled = true;
+    refreshBtn.querySelector('.btn-text').textContent = 'Refreshing...';
+    
+    // Clear the current transcript
+    currentTranscript = '';
+    
+    // Update the UI
+    updateTranscriptPreview();
+    statusText.textContent = 'Ready to transcribe';
+    
+    // Clear the transcript in storage
+    chrome.storage.local.set({
+      currentTranscript: '',
+      isFinal: true,
+      isRecording: false
+    });
+    
+    // Send message to background script to clear its transcript
+    chrome.runtime.sendMessage({action: 'clearTranscript'}, function(response) {
+      console.log('Transcript cleared in background:', response);
+    });
+    
+    // Reset button state
+    refreshBtn.disabled = false;
+    refreshBtn.querySelector('.btn-text').textContent = 'Refresh Transcript';
+    
+    // Hide both buttons since there's no transcript
+    downloadBtn.classList.add('hidden');
+    refreshBtn.classList.add('hidden');
+    
+    showNotification('Transcript cleared successfully!', 'success');
+  });
+
   function setRecordingState(recording) {
     isRecording = recording;
     
@@ -128,6 +165,7 @@ document.addEventListener('DOMContentLoaded', function() {
       waveAnimation.classList.remove('hidden');
       statusCard.classList.add('recording');
       downloadBtn.classList.add('hidden');
+      refreshBtn.classList.add('hidden'); // Hide refresh button during recording
       
       // Add fade-in animation
       statusCard.classList.add('fade-in');
@@ -145,6 +183,8 @@ document.addEventListener('DOMContentLoaded', function() {
       if (currentTranscript) {
         downloadBtn.classList.remove('hidden');
         downloadBtn.classList.add('fade-in');
+        refreshBtn.classList.remove('hidden'); // Show refresh button when transcript is available
+        refreshBtn.classList.add('fade-in');
       }
     }
   }
@@ -217,7 +257,7 @@ document.addEventListener('DOMContentLoaded', function() {
   }, 1000); // Check every 1 second when recording
 
   // Add hover effects for buttons
-  [playBtn, stopBtn, downloadBtn].forEach(btn => {
+  [playBtn, stopBtn, downloadBtn, refreshBtn].forEach(btn => { // Add refreshBtn to the hover effects
     btn.addEventListener('mouseenter', function() {
       if (!btn.disabled) {
         btn.style.transform = 'translateY(-2px)';
@@ -230,4 +270,4 @@ document.addEventListener('DOMContentLoaded', function() {
       }
     });
   });
-}); 
+});

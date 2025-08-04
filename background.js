@@ -118,6 +118,19 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     case 'getStatus':
       sendResponse(getStatus());
       break;
+      
+    case 'clearTranscript':
+      // Clear the transcript in memory
+      currentTranscript = '';
+      // Also clear it in storage
+      chrome.storage.local.set({
+        currentTranscript: '',
+        isFinal: true,
+        isRecording: false
+      });
+      console.log('Transcript cleared from background script');
+      sendResponse({ success: true });
+      break;
 
     case 'transcriptUpdate':
       // Handle transcript updates from content script
@@ -160,4 +173,4 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
   if (changeInfo.status === 'complete' && isRecording) {
     console.log('Tab updated, ensuring recording continues');
   }
-}); 
+});

@@ -190,11 +190,18 @@
       background: linear-gradient(135deg, #3b82f6, #2563eb);
       color: white;
       box-shadow: 0 4px 20px rgba(59, 130, 246, 0.4);
+      margin-bottom: 12px; /* Add margin between buttons and footer */
     }
 
-    .btn-secondary:hover {
+    /* Style for the refresh button */
+    #refreshBtn {
+      background: linear-gradient(135deg, #8b5cf6, #7c3aed); /* Different color for distinction */
+      box-shadow: 0 4px 20px rgba(139, 92, 246, 0.4);
+    }
+
+    #refreshBtn:hover {
       transform: translateY(-2px);
-      box-shadow: 0 8px 30px rgba(59, 130, 246, 0.6);
+      box-shadow: 0 8px 30px rgba(139, 92, 246, 0.6);
     }
 
     .btn:disabled {
@@ -297,6 +304,10 @@
       <span class="btn-text">Download Transcript</span>
     </button>
 
+    <button id="refreshBtn" class="btn btn-secondary hidden">
+      <span class="btn-text">Refresh Transcript</span>
+    </button>
+
     <div class="footer">
       <div class="footer-text">
         All processing happens locally on your device.<br>
@@ -307,4 +318,4 @@
 
   <script src="popup.js"></script>
 </body>
-</html> 
+</html>
