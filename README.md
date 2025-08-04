@@ -17,8 +17,8 @@ A Chrome extension that transcribes audio from browser tabs in real-time and sav
 
 1. **Download or Clone this Repository**
    ```bash
-   git clone https://github.com/yourusername/browser-notetaker.git
-   cd browser-notetaker
+   git clone https://github.com/williampepple1/browser-audio-transcriber.git
+   cd browser-audio-transcriber
    ```
 
 2. **Open Chrome Extensions Page**
@@ -30,7 +30,7 @@ A Chrome extension that transcribes audio from browser tabs in real-time and sav
 
 4. **Load the Extension**
    - Click "Load unpacked"
-   - Select the `browser-notetaker` folder
+   - Select the `browser-audio-transcriber` folder
    - The extension should now appear in your extensions list
 
 ### Method 2: Install from Chrome Web Store (Future)
@@ -87,7 +87,7 @@ Once published, you'll be able to install directly from the Chrome Web Store.
 ### File Structure
 
 ```
-browser-notetaker/
+browser-audio-transcriber/
 ├── manifest.json          # Extension configuration
 ├── popup.html            # Extension popup interface
 ├── popup.js              # Popup functionality
