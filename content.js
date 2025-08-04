@@ -53,8 +53,19 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 });
 
 // Start recording function
+// Start recording function
 async function startRecording() {
   try {
+    // First ensure any existing recognition is stopped
+    if (recognition) {
+      try {
+        recognition.stop();
+      } catch (e) {
+        console.log('Error stopping existing recognition:', e);
+      }
+      recognition = null;
+    }
+    
     isRecordingActive = true;
     
     // Initialize speech recognition
@@ -65,14 +76,18 @@ async function startRecording() {
     // Start speech recognition with error handling
     try {
       recognition.start();
+      console.log('Speech recognition started successfully');
     } catch (startError) {
       console.error('Failed to start recognition:', startError);
       // If recognition is already started, try to stop and restart
       if (startError.message.includes('already started')) {
         try {
           recognition.stop();
-          await new Promise(resolve => setTimeout(resolve, 500));
-          recognition.start();
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          recognition = null;
+          if (initializeSpeechRecognition()) {
+            recognition.start();
+          }
         } catch (restartError) {
           console.error('Failed to restart recognition:', restartError);
           throw new Error('Could not start speech recognition');
@@ -177,23 +192,44 @@ function initializeSpeechRecognition() {
         setTimeout(() => {
           try {
             if (recognition && isRecordingActive) {
-              recognition.start();
+              // First try to stop the existing recognition instance
+              try {
+                recognition.stop();
+              } catch (stopError) {
+                console.log('Error stopping recognition before restart:', stopError);
+                // Continue anyway
+              }
+              
+              // Wait a moment before starting a new instance
+              setTimeout(() => {
+                try {
+                  // Create a new recognition instance instead of reusing
+                  recognition = null;
+                  if (initializeSpeechRecognition()) {
+                    recognition.start();
+                  }
+                } catch (e) {
+                  console.error('Failed to create new recognition instance after no-speech error:', e);
+                }
+              }, 500);
             }
           } catch (e) {
             console.error('Failed to restart recognition after no-speech error:', e);
           }
         }, 1000);
       }
-    } else if (event.error === 'network') {
-      // For network errors, try to restart after a longer delay
+    } else if (event.error === 'network' || event.error === 'aborted') {
+      // For network or aborted errors, create a new instance after a longer delay
       if (isRecordingActive) {
         setTimeout(() => {
           try {
-            if (recognition && isRecordingActive) {
+            // Create a new recognition instance
+            recognition = null;
+            if (initializeSpeechRecognition()) {
               recognition.start();
             }
           } catch (e) {
-            console.error('Failed to restart recognition after network error:', e);
+            console.error(`Failed to restart recognition after ${event.error} error:`, e);
           }
         }, 3000);
       }
@@ -201,27 +237,35 @@ function initializeSpeechRecognition() {
   };
 
   recognition.onend = function() {
-    // Only restart if still recording and recognition is not in an error state
-    if (isRecordingActive && recognition) {
-      // Add a small delay to prevent immediate restart issues
+    // Only restart if still recording
+    if (isRecordingActive) {
+      // Add a longer delay to prevent immediate restart issues
       setTimeout(() => {
         try {
-          if (isRecordingActive && recognition) {
+          // Always create a new instance instead of reusing
+          recognition = null;
+          if (initializeSpeechRecognition()) {
             recognition.start();
+            console.log('Successfully restarted speech recognition');
           }
         } catch (e) {
           console.error('Failed to restart recognition:', e);
-          // If restart fails, try to create a new instance
-          if (isRecordingActive) {
-            console.log('Creating new recognition instance...');
-            recognition = null;
-            initializeSpeechRecognition();
-            if (recognition) {
-              recognition.start();
+          // If restart fails, try again after a longer delay
+          setTimeout(() => {
+            if (isRecordingActive) {
+              try {
+                recognition = null;
+                if (initializeSpeechRecognition()) {
+                  recognition.start();
+                  console.log('Successfully restarted speech recognition after delay');
+                }
+              } catch (retryError) {
+                console.error('Failed to restart recognition after retry:', retryError);
+              }
             }
-          }
+          }, 2000);
         }
-      }, 100);
+      }, 500);
     }
   };
 
@@ -374,4 +418,4 @@ function getAllMediaStreams() {
     showRecordingIndicator,
     hideRecordingIndicator
   };
-} 
+}
