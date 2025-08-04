@@ -8,7 +8,9 @@
     "tabs",
     "storage",
     "scripting",
-    "downloads"
+    "downloads",
+    "tabCapture",
+    "offscreen"
   ],
   "host_permissions": [
     "http://*/*",
@@ -32,5 +34,10 @@
     "16": "icons/icon16.png",
     "48": "icons/icon48.png",
     "128": "icons/icon128.png"
+  },
+  "offscreen": {
+    "reasons": ["USER_MEDIA"],
+    "justification": "The extension needs to process audio from tab capture, and the Web Speech API is only available in a document context.",
+    "path": "offscreen.html"
   }
 } 
