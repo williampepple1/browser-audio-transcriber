@@ -58,6 +58,9 @@ Once published, you'll be able to install directly from the Chrome Web Store.
    - Click "📥 Download Transcript" to save as a text file
    - Files are automatically named with timestamps
 
+6. **Refresh Transcript**
+   - Click "Refresh Transcript" to reset the state of the extension
+
 ### Supported Audio Sources
 
 - YouTube videos
