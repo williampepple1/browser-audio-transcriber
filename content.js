@@ -10,267 +10,248 @@ if (window.audioTranscriberLoaded) {
   let audioChunks = [];
   let recognition = null;
   let isRecordingActive = false;
+  let recordingSessionId = 0;
+  let recognitionRestartTimer = null;
+  let startRecordingPromise = null;
 
-// Listen for messages from the background script
-chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-  switch (request.action) {
-    case 'startRecording':
-      startRecording().then(sendResponse);
-      return true; // Keep message channel open for async response
+  // Listen for messages from the background script
+  chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+    switch (request.action) {
+      case 'startRecording':
+        startRecording().then(sendResponse);
+        return true; // Keep message channel open for async response
 
-    case 'stopRecording':
-      stopRecording().then(sendResponse);
-      return true; // Keep message channel open for async response
+      case 'stopRecording':
+        stopRecording().then(sendResponse);
+        return true; // Keep message channel open for async response
 
-    case 'getAudioElements':
-      // Find all audio and video elements on the page
-      const audioElements = document.querySelectorAll('audio, video');
-      const audioInfo = Array.from(audioElements).map(element => ({
-        tagName: element.tagName,
-        src: element.src,
-        currentSrc: element.currentSrc,
-        paused: element.paused,
-        currentTime: element.currentTime,
-        duration: element.duration
-      }));
-      sendResponse({ audioElements: audioInfo });
-      break;
+      case 'recordingStarted':
+        showRecordingIndicator();
+        sendResponse({ success: true });
+        break;
 
-    case 'playAudio':
-      // Force play all audio/video elements (useful for some sites)
-      const mediaElements = document.querySelectorAll('audio, video');
-      mediaElements.forEach(element => {
-        if (element.paused) {
-          element.play().catch(e => console.log('Could not play element:', e));
-        }
-      });
-      sendResponse({ success: true });
-      break;
+      case 'recordingStopped':
+        hideRecordingIndicator();
+        sendResponse({ success: true });
+        break;
 
-    default:
-      sendResponse({ error: 'Unknown action' });
-  }
-});
+      case 'getAudioElements':
+        sendResponse({ audioElements: getAudioElements() });
+        break;
 
-// Start recording function
-// Start recording function
-async function startRecording() {
-  try {
-    // First ensure any existing recognition is stopped
-    if (recognition) {
-      try {
-        recognition.stop();
-      } catch (e) {
-        console.log('Error stopping existing recognition:', e);
-      }
-      recognition = null;
+      case 'playAudio':
+        playMediaElements();
+        sendResponse({ success: true });
+        break;
+
+      default:
+        sendResponse({ error: 'Unknown action' });
     }
-    
-    isRecordingActive = true;
-    
-    // Initialize speech recognition
-    if (!initializeSpeechRecognition()) {
+  });
+
+  async function startRecording() {
+    if (isRecordingActive) {
+      return { success: true };
+    }
+
+    if (startRecordingPromise) {
+      return startRecordingPromise;
+    }
+
+    startRecordingPromise = startRecordingSession().finally(() => {
+      startRecordingPromise = null;
+    });
+
+    return startRecordingPromise;
+  }
+
+  async function startRecordingSession() {
+    const sessionId = ++recordingSessionId;
+
+    try {
+      clearRecognitionRestartTimer();
+      stopRecognition();
+      stopAudioCapture();
+
+      if (!supportsSpeechRecognition()) {
+        throw new Error('Speech recognition not supported');
+      }
+
+      isRecordingActive = true;
+
+      await startAudioCapture();
+
+      if (!isCurrentRecordingSession(sessionId)) {
+        throw new Error('Recording was stopped before startup completed');
+      }
+
+      startRecognition(sessionId);
+
+      console.log('Recording started successfully');
+      return { success: true };
+
+    } catch (error) {
+      console.error('Error starting recording:', error);
+      cleanupRecordingSession();
+      return { success: false, error: error.message };
+    }
+  }
+
+  async function stopRecording() {
+    try {
+      cleanupRecordingSession();
+      console.log('Recording stopped successfully');
+      return { success: true };
+
+    } catch (error) {
+      console.error('Error stopping recording:', error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  function cleanupRecordingSession() {
+    isRecordingActive = false;
+    recordingSessionId++;
+    clearRecognitionRestartTimer();
+    stopRecognition();
+    stopAudioCapture();
+  }
+
+  function startRecognition(sessionId) {
+    if (!supportsSpeechRecognition()) {
       throw new Error('Speech recognition not supported');
     }
 
-    // Start speech recognition with error handling
+    if (!isCurrentRecordingSession(sessionId)) {
+      return;
+    }
+
+    recognition = createSpeechRecognition(sessionId);
+    recognition.start();
+    console.log('Speech recognition started successfully');
+  }
+
+  function createSpeechRecognition(sessionId) {
+    const speechRecognition = new webkitSpeechRecognition();
+    speechRecognition.continuous = true;
+    speechRecognition.interimResults = true;
+    speechRecognition.lang = 'en-US';
+
+    speechRecognition.onresult = function(event) {
+      if (!isCurrentRecordingSession(sessionId)) {
+        return;
+      }
+
+      let interimTranscript = '';
+      let finalTranscript = '';
+
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const transcript = event.results[i][0].transcript;
+        if (event.results[i].isFinal) {
+          finalTranscript += transcript + ' ';
+        } else {
+          interimTranscript += transcript;
+        }
+      }
+
+      if (finalTranscript) {
+        chrome.runtime.sendMessage({
+          action: 'transcriptUpdate',
+          transcript: finalTranscript,
+          isFinal: true
+        });
+      }
+
+      if (interimTranscript) {
+        chrome.runtime.sendMessage({
+          action: 'transcriptUpdate',
+          transcript: interimTranscript,
+          isFinal: false
+        });
+      }
+    };
+
+    speechRecognition.onerror = function(event) {
+      console.error('Speech recognition error:', event.error);
+
+      if (!isCurrentRecordingSession(sessionId)) {
+        return;
+      }
+
+      if (event.error === 'no-speech') {
+        scheduleRecognitionRestart(sessionId, 1000);
+      } else if (event.error === 'network' || event.error === 'aborted') {
+        scheduleRecognitionRestart(sessionId, 3000);
+      }
+    };
+
+    speechRecognition.onend = function() {
+      if (isCurrentRecordingSession(sessionId)) {
+        scheduleRecognitionRestart(sessionId, 500);
+      }
+    };
+
+    return speechRecognition;
+  }
+
+  function scheduleRecognitionRestart(sessionId, delay) {
+    if (!isCurrentRecordingSession(sessionId)) {
+      return;
+    }
+
+    clearRecognitionRestartTimer();
+
+    recognitionRestartTimer = setTimeout(() => {
+      recognitionRestartTimer = null;
+
+      if (!isCurrentRecordingSession(sessionId)) {
+        return;
+      }
+
+      try {
+        stopRecognition();
+        startRecognition(sessionId);
+        console.log('Successfully restarted speech recognition');
+      } catch (error) {
+        console.error('Failed to restart recognition:', error);
+        scheduleRecognitionRestart(sessionId, 2000);
+      }
+    }, delay);
+  }
+
+  function clearRecognitionRestartTimer() {
+    if (recognitionRestartTimer) {
+      clearTimeout(recognitionRestartTimer);
+      recognitionRestartTimer = null;
+    }
+  }
+
+  function stopRecognition() {
+    if (!recognition) {
+      return;
+    }
+
+    const currentRecognition = recognition;
+    recognition = null;
+
+    currentRecognition.onresult = null;
+    currentRecognition.onerror = null;
+    currentRecognition.onend = null;
+
     try {
-      recognition.start();
-      console.log('Speech recognition started successfully');
-    } catch (startError) {
-      console.error('Failed to start recognition:', startError);
-      // If recognition is already started, try to stop and restart
-      if (startError.message.includes('already started')) {
-        try {
-          recognition.stop();
-          await new Promise(resolve => setTimeout(resolve, 1000));
-          recognition = null;
-          if (initializeSpeechRecognition()) {
-            recognition.start();
-          }
-        } catch (restartError) {
-          console.error('Failed to restart recognition:', restartError);
-          throw new Error('Could not start speech recognition');
-        }
-      } else {
-        throw startError;
-      }
+      currentRecognition.stop();
+    } catch (error) {
+      console.log('Error stopping recognition:', error);
     }
-
-    // Try to capture audio from the page
-    await startAudioCapture();
-
-    console.log('Recording started successfully');
-    return { success: true };
-
-  } catch (error) {
-    console.error('Error starting recording:', error);
-    isRecordingActive = false;
-    return { success: false, error: error.message };
-  }
-}
-
-// Stop recording function
-async function stopRecording() {
-  try {
-    isRecordingActive = false;
-
-    if (recognition) {
-      recognition.stop();
-      recognition = null;
-    }
-
-    if (mediaRecorder && mediaRecorder.state !== 'inactive') {
-      mediaRecorder.stop();
-    }
-
-    // Stop all tracks in the stream
-    if (mediaRecorder && mediaRecorder.stream) {
-      mediaRecorder.stream.getTracks().forEach(track => track.stop());
-    }
-
-    console.log('Recording stopped successfully');
-    return { success: true };
-
-  } catch (error) {
-    console.error('Error stopping recording:', error);
-    return { success: false, error: error.message };
-  }
-}
-
-// Initialize speech recognition
-function initializeSpeechRecognition() {
-  if (!('webkitSpeechRecognition' in window)) {
-    console.error('Speech recognition not supported');
-    return false;
   }
 
-  recognition = new webkitSpeechRecognition();
-  recognition.continuous = true;
-  recognition.interimResults = true;
-  recognition.lang = 'en-US';
+  function isCurrentRecordingSession(sessionId) {
+    return isRecordingActive && recordingSessionId === sessionId;
+  }
 
-  recognition.onresult = function(event) {
-    let interimTranscript = '';
-    let finalTranscript = '';
-
-    for (let i = event.resultIndex; i < event.results.length; i++) {
-      const transcript = event.results[i][0].transcript;
-      if (event.results[i].isFinal) {
-        finalTranscript += transcript + ' ';
-      } else {
-        interimTranscript += transcript;
-      }
-    }
-
-    // Send final results (these will be accumulated)
-    if (finalTranscript) {
-      chrome.runtime.sendMessage({
-        action: 'transcriptUpdate',
-        transcript: finalTranscript,
-        isFinal: true
-      });
-    }
-
-    // Send interim results (these will be shown in real-time but not accumulated)
-    if (interimTranscript) {
-      chrome.runtime.sendMessage({
-        action: 'transcriptUpdate',
-        transcript: interimTranscript,
-        isFinal: false
-      });
-    }
-  };
-
-  recognition.onerror = function(event) {
-    console.error('Speech recognition error:', event.error);
-    
-    // Handle specific errors
-    if (event.error === 'no-speech') {
-      // Restart recognition after a short delay for no-speech errors
-      if (isRecordingActive) {
-        setTimeout(() => {
-          try {
-            if (recognition && isRecordingActive) {
-              // First try to stop the existing recognition instance
-              try {
-                recognition.stop();
-              } catch (stopError) {
-                console.log('Error stopping recognition before restart:', stopError);
-                // Continue anyway
-              }
-              
-              // Wait a moment before starting a new instance
-              setTimeout(() => {
-                try {
-                  // Create a new recognition instance instead of reusing
-                  recognition = null;
-                  if (initializeSpeechRecognition()) {
-                    recognition.start();
-                  }
-                } catch (e) {
-                  console.error('Failed to create new recognition instance after no-speech error:', e);
-                }
-              }, 500);
-            }
-          } catch (e) {
-            console.error('Failed to restart recognition after no-speech error:', e);
-          }
-        }, 1000);
-      }
-    } else if (event.error === 'network' || event.error === 'aborted') {
-      // For network or aborted errors, create a new instance after a longer delay
-      if (isRecordingActive) {
-        setTimeout(() => {
-          try {
-            // Create a new recognition instance
-            recognition = null;
-            if (initializeSpeechRecognition()) {
-              recognition.start();
-            }
-          } catch (e) {
-            console.error(`Failed to restart recognition after ${event.error} error:`, e);
-          }
-        }, 3000);
-      }
-    }
-  };
-
-  recognition.onend = function() {
-    // Only restart if still recording
-    if (isRecordingActive) {
-      // Add a longer delay to prevent immediate restart issues
-      setTimeout(() => {
-        try {
-          // Always create a new instance instead of reusing
-          recognition = null;
-          if (initializeSpeechRecognition()) {
-            recognition.start();
-            console.log('Successfully restarted speech recognition');
-          }
-        } catch (e) {
-          console.error('Failed to restart recognition:', e);
-          // If restart fails, try again after a longer delay
-          setTimeout(() => {
-            if (isRecordingActive) {
-              try {
-                recognition = null;
-                if (initializeSpeechRecognition()) {
-                  recognition.start();
-                  console.log('Successfully restarted speech recognition after delay');
-                }
-              } catch (retryError) {
-                console.error('Failed to restart recognition after retry:', retryError);
-              }
-            }
-          }, 2000);
-        }
-      }, 500);
-    }
-  };
-
-  return true;
-}
+  function supportsSpeechRecognition() {
+    return 'webkitSpeechRecognition' in window;
+  }
 
 // Start audio capture
 async function startAudioCapture() {
@@ -287,15 +268,16 @@ async function startAudioCapture() {
     // Set up media recorder
     mediaRecorder = new MediaRecorder(stream);
     audioChunks = [];
+    const recordedChunks = audioChunks;
 
     mediaRecorder.ondataavailable = function(event) {
       if (event.data.size > 0) {
-        audioChunks.push(event.data);
+        recordedChunks.push(event.data);
       }
     };
 
     mediaRecorder.onstop = function() {
-      const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+      const audioBlob = new Blob(recordedChunks, { type: 'audio/webm' });
       console.log('Audio recording completed, size:', audioBlob.size);
     };
 
@@ -304,9 +286,52 @@ async function startAudioCapture() {
 
   } catch (error) {
     console.error('Audio capture failed:', error);
-    return false;
+    throw new Error('Audio capture failed: ' + error.message);
   }
 }
+
+  function stopAudioCapture() {
+    if (!mediaRecorder) {
+      audioChunks = [];
+      return;
+    }
+
+    const recorder = mediaRecorder;
+    mediaRecorder = null;
+
+    if (recorder.state !== 'inactive') {
+      recorder.stop();
+    }
+
+    if (recorder.stream) {
+      recorder.stream.getTracks().forEach(track => track.stop());
+    }
+
+    audioChunks = [];
+  }
+
+  function getAudioElements() {
+    const audioElements = document.querySelectorAll('audio, video');
+
+    return Array.from(audioElements).map(element => ({
+      tagName: element.tagName,
+      src: element.src,
+      currentSrc: element.currentSrc,
+      paused: element.paused,
+      currentTime: element.currentTime,
+      duration: element.duration
+    }));
+  }
+
+  function playMediaElements() {
+    const mediaElements = document.querySelectorAll('audio, video');
+
+    mediaElements.forEach(element => {
+      if (element.paused) {
+        element.play().catch(error => console.log('Could not play element:', error));
+      }
+    });
+  }
 
 // Monitor for new audio/video elements being added to the page
 const observer = new MutationObserver((mutations) => {
@@ -372,15 +397,6 @@ function hideRecordingIndicator() {
     recordingIndicator = null;
   }
 }
-
-// Listen for recording status updates
-chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-  if (request.action === 'recordingStarted') {
-    showRecordingIndicator();
-  } else if (request.action === 'recordingStopped') {
-    hideRecordingIndicator();
-  }
-});
 
 // Helper function to get all media streams on the page
 function getAllMediaStreams() {

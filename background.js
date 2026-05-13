@@ -1,57 +1,81 @@
 // Background service worker for audio transcription
 let isRecording = false;
 let currentTranscript = '';
+let recordingOperation = Promise.resolve();
+
+function runRecordingOperation(operation) {
+  const nextOperation = recordingOperation.catch(() => {}).then(operation);
+  recordingOperation = nextOperation.catch(() => {});
+  return nextOperation;
+}
+
+function setStoredState(state) {
+  return chrome.storage.local.set(state);
+}
+
+async function getActiveTab() {
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+
+  if (!tab) {
+    throw new Error('No active tab found');
+  }
+
+  if (!tab.url || tab.url.startsWith('chrome://') || tab.url.startsWith('chrome-extension://')) {
+    throw new Error('Cannot record on Chrome system pages. Please navigate to a regular webpage.');
+  }
+
+  return tab;
+}
+
+async function ensureContentScript(tabId) {
+  try {
+    await chrome.scripting.executeScript({
+      target: { tabId },
+      files: ['content.js']
+    });
+  } catch (injectionError) {
+    console.log('Content script already injected or injection failed:', injectionError);
+  }
+
+  // Give the content script listener a short moment to finish registering.
+  await new Promise(resolve => setTimeout(resolve, 100));
+}
 
 // Start recording audio from the active tab
 async function startRecording() {
   try {
-    // Get the active tab
-    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    
-    if (!tab) {
-      throw new Error('No active tab found');
+    if (isRecording) {
+      return { success: true };
     }
 
-    // Check if we can inject scripts on this tab
-    if (tab.url.startsWith('chrome://') || tab.url.startsWith('chrome-extension://')) {
-      throw new Error('Cannot record on Chrome system pages. Please navigate to a regular webpage.');
-    }
+    const tab = await getActiveTab();
+    await ensureContentScript(tab.id);
 
-    // First, ensure content script is injected
+    let response;
     try {
-      await chrome.scripting.executeScript({
-        target: { tabId: tab.id },
-        files: ['content.js']
-      });
-    } catch (injectionError) {
-      console.log('Content script already injected or injection failed:', injectionError);
-    }
-
-    // Wait a moment for the script to initialize
-    await new Promise(resolve => setTimeout(resolve, 100));
-
-    // Send message to content script to start recording
-    try {
-      const response = await chrome.tabs.sendMessage(tab.id, { action: 'startRecording' });
-      
-             if (response && response.success) {
-         isRecording = true;
-         currentTranscript = '';
-         // Clear storage for new recording
-         chrome.storage.local.set({
-           currentTranscript: '',
-           isFinal: true,
-           isRecording: true
-         });
-         console.log('Recording started successfully');
-         return { success: true };
-       } else {
-        throw new Error(response?.error || 'Failed to start recording');
-      }
+      response = await chrome.tabs.sendMessage(tab.id, { action: 'startRecording' });
     } catch (messageError) {
       console.error('Failed to communicate with content script:', messageError);
       throw new Error('Could not start recording. Please refresh the page and try again.');
     }
+
+    if (!response || !response.success) {
+      throw new Error(response?.error || 'Failed to start recording');
+    }
+
+    isRecording = true;
+    currentTranscript = '';
+
+    await setStoredState({
+      currentTranscript: '',
+      isFinal: true,
+      isRecording: true
+    });
+
+    await chrome.tabs.sendMessage(tab.id, { action: 'recordingStarted' }).catch(() => {});
+
+    console.log('Recording started successfully');
+    return { success: true };
 
   } catch (error) {
     console.error('Error starting recording:', error);
@@ -62,6 +86,16 @@ async function startRecording() {
 // Stop recording
 async function stopRecording() {
   try {
+    if (!isRecording) {
+      await setStoredState({
+        currentTranscript: currentTranscript,
+        isFinal: true,
+        isRecording: false
+      });
+
+      return { success: true, transcript: currentTranscript };
+    }
+
     isRecording = false;
 
     // Get the active tab
@@ -75,19 +109,22 @@ async function stopRecording() {
         if (!response || !response.success) {
           console.warn('Failed to stop recording in content script');
         }
+
+        await chrome.tabs.sendMessage(tab.id, { action: 'recordingStopped' }).catch(() => {});
       } catch (messageError) {
         console.warn('Could not send stop message to content script:', messageError);
       }
     }
 
-         console.log('Recording stopped successfully');
-     // Update storage with final transcript
-     chrome.storage.local.set({
-       currentTranscript: currentTranscript,
-       isFinal: true,
-       isRecording: false
-     });
-     return { success: true, transcript: currentTranscript };
+    console.log('Recording stopped successfully');
+
+    await setStoredState({
+      currentTranscript: currentTranscript,
+      isFinal: true,
+      isRecording: false
+    });
+
+    return { success: true, transcript: currentTranscript };
 
   } catch (error) {
     console.error('Error stopping recording:', error);
@@ -108,11 +145,11 @@ function getStatus() {
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   switch (request.action) {
     case 'startRecording':
-      startRecording().then(sendResponse);
+      runRecordingOperation(startRecording).then(sendResponse);
       return true; // Keep message channel open for async response
 
     case 'stopRecording':
-      stopRecording().then(sendResponse);
+      runRecordingOperation(stopRecording).then(sendResponse);
       return true; // Keep message channel open for async response
 
     case 'getStatus':
@@ -120,48 +157,58 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       break;
       
     case 'clearTranscript':
-      // Clear the transcript in memory
-      currentTranscript = '';
-      // Also clear it in storage
-      chrome.storage.local.set({
-        currentTranscript: '',
-        isFinal: true,
-        isRecording: false
-      });
-      console.log('Transcript cleared from background script');
-      sendResponse({ success: true });
-      break;
+      clearTranscript().then(sendResponse);
+      return true;
 
     case 'transcriptUpdate':
-      // Handle transcript updates from content script
-      // Only accumulate final results to avoid duplicates
-      if (request.isFinal) {
-        currentTranscript += request.transcript;
-        
-        // Store the complete transcript in storage
-        chrome.storage.local.set({
-          currentTranscript: currentTranscript,
-          isFinal: true,
-          isRecording: isRecording
-        });
-        
-        // Send the complete transcript to popup
-        try {
-          chrome.runtime.sendMessage({
-            action: 'transcriptUpdate',
-            transcript: currentTranscript,
-            isFinal: true
-          });
-        } catch (e) {
-          // Popup might not be open, that's okay
-        }
-      }
+      handleTranscriptUpdate(request).catch(error => {
+        console.error('Failed to handle transcript update:', error);
+      });
       break;
 
     default:
       sendResponse({ error: 'Unknown action' });
   }
 });
+
+async function clearTranscript() {
+  currentTranscript = '';
+  isRecording = false;
+
+  await setStoredState({
+    currentTranscript: '',
+    isFinal: true,
+    isRecording: false
+  });
+
+  console.log('Transcript cleared from background script');
+  return { success: true };
+}
+
+async function handleTranscriptUpdate(request) {
+  // Only accumulate final results to avoid duplicates.
+  if (!request.isFinal) {
+    return;
+  }
+
+  currentTranscript += request.transcript;
+
+  await setStoredState({
+    currentTranscript: currentTranscript,
+    isFinal: true,
+    isRecording: isRecording
+  });
+
+  try {
+    await chrome.runtime.sendMessage({
+      action: 'transcriptUpdate',
+      transcript: currentTranscript,
+      isFinal: true
+    });
+  } catch (e) {
+    // Popup might not be open, that's okay
+  }
+}
 
 // Handle extension installation
 chrome.runtime.onInstalled.addListener(() => {
