@@ -4,7 +4,7 @@
 
 ### 1. Download the Extension
 - Download or clone this repository to your computer
-- Make sure all files are in a folder called `browser-notetaker`
+- Make sure all files are in a folder called `browser-audio-transcriber`
 
 ### 2. Open Chrome Extensions
 - Open Google Chrome
@@ -17,7 +17,7 @@
 
 ### 4. Load the Extension
 - Click the "Load unpacked" button that appears
-- Navigate to and select the `browser-notetaker` folder
+- Navigate to and select the `browser-audio-transcriber` folder
 - Click "Select Folder"
 
 ### 5. Verify Installation
@@ -29,10 +29,10 @@
 
 1. **Go to a webpage with audio** (YouTube, podcast, etc.)
 2. **Click the extension icon** in your toolbar
-3. **Click "▶ Play"** to start transcription
+3. **Click "Start Recording"** to start transcription
 4. **Let audio play** in the browser tab
-5. **Click "⏹ Stop"** when done
-6. **Click "📥 Download Transcript"** to save the file
+5. **Click "Stop"** when done
+6. **Click "Download Transcript"** to save the file
 
 ## Troubleshooting
 

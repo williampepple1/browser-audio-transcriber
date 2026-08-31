@@ -9,17 +9,17 @@
       box-sizing: border-box;
     }
 
-                   body {
-        width: 380px;
-        min-height: 500px;
-        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-        background: linear-gradient(135deg, #87ceeb 0%, #5dade2 50%, #3498db 100%);
-        color: #ffffff;
-        overflow: hidden;
-      }
+    body {
+      width: 360px;
+      min-height: 480px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #000;
+      color: #fff;
+      -webkit-font-smoothing: antialiased;
+    }
 
     .container {
-      padding: 24px;
+      padding: 32px 28px 24px;
       height: 100vh;
       display: flex;
       flex-direction: column;
@@ -27,221 +27,76 @@
 
     .header {
       text-align: center;
-      margin-bottom: 32px;
-    }
-
-    .logo {
-      font-size: 32px;
-      margin-bottom: 8px;
-      filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
+      margin-bottom: 40px;
     }
 
     .title {
-      font-size: 20px;
-      font-weight: 600;
-      margin-bottom: 4px;
-      letter-spacing: -0.5px;
-    }
-
-    .subtitle {
-      font-size: 14px;
-      opacity: 0.8;
-      font-weight: 400;
+      font-size: 15px;
+      font-weight: 500;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #fff;
     }
 
     .status-card {
-      background: rgba(255, 255, 255, 0.15);
-      backdrop-filter: blur(20px);
-      border: 1px solid rgba(255, 255, 255, 0.2);
-      border-radius: 16px;
-      padding: 20px;
-      margin-bottom: 24px;
-      transition: all 0.3s ease;
+      border: 1px solid #222;
+      border-radius: 12px;
+      padding: 24px 20px;
+      margin-bottom: 28px;
+      transition: border-color 0.3s ease, background 0.3s ease;
+      background: transparent;
     }
 
     .status-card.recording {
-      background: rgba(239, 68, 68, 0.2);
-      border-color: rgba(239, 68, 68, 0.3);
-      box-shadow: 0 8px 32px rgba(239, 68, 68, 0.3);
+      border-color: #fff;
+      background: rgba(255, 255, 255, 0.03);
     }
 
     .status-content {
       display: flex;
       align-items: center;
       justify-content: center;
-      gap: 12px;
-      margin-bottom: 16px;
+      gap: 10px;
     }
 
     .recording-indicator {
-      width: 16px;
-      height: 16px;
+      width: 8px;
+      height: 8px;
       border-radius: 50%;
-      background: #ef4444;
-      animation: pulse 2s infinite;
-      box-shadow: 0 0 20px rgba(239, 68, 68, 0.6);
+      background: #fff;
+      animation: pulse 2s ease-in-out infinite;
     }
 
     @keyframes pulse {
-      0% { 
-        transform: scale(1);
-        opacity: 1;
-      }
-      50% { 
-        transform: scale(1.1);
-        opacity: 0.7;
-      }
-      100% { 
-        transform: scale(1);
-        opacity: 1;
-      }
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
     }
 
     .status-text {
-      font-size: 16px;
-      font-weight: 500;
-    }
-
-    .transcript-preview {
-      background: rgba(0, 0, 0, 0.2);
-      border-radius: 12px;
-      padding: 16px;
       font-size: 13px;
-      line-height: 1.5;
-      max-height: 120px;
-      overflow-y: auto;
-      text-align: left;
-      border: 1px solid rgba(255, 255, 255, 0.1);
+      font-weight: 400;
+      color: #888;
+      letter-spacing: 0.02em;
     }
 
-    .transcript-preview::-webkit-scrollbar {
-      width: 4px;
-    }
-
-    .transcript-preview::-webkit-scrollbar-track {
-      background: rgba(255, 255, 255, 0.1);
-      border-radius: 2px;
-    }
-
-    .transcript-preview::-webkit-scrollbar-thumb {
-      background: rgba(255, 255, 255, 0.3);
-      border-radius: 2px;
-    }
-
-    .controls {
-      display: flex;
-      gap: 12px;
-      margin-bottom: 20px;
-    }
-
-    .btn {
-      flex: 1;
-      padding: 16px 24px;
-      border: none;
-      border-radius: 12px;
-      font-size: 14px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-      position: relative;
-      overflow: hidden;
-      text-transform: none;
-      letter-spacing: 0;
-    }
-
-    .btn::before {
-      content: '';
-      position: absolute;
-      top: 0;
-      left: -100%;
-      width: 100%;
-      height: 100%;
-      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
-      transition: left 0.5s;
-    }
-
-    .btn:hover::before {
-      left: 100%;
-    }
-
-    .btn-primary {
-      background: linear-gradient(135deg, #10b981, #059669);
-      color: white;
-      box-shadow: 0 4px 20px rgba(16, 185, 129, 0.4);
-    }
-
-    .btn-primary:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 8px 30px rgba(16, 185, 129, 0.6);
-    }
-
-    .btn-danger {
-      background: linear-gradient(135deg, #ef4444, #dc2626);
-      color: white;
-      box-shadow: 0 4px 20px rgba(239, 68, 68, 0.4);
-    }
-
-    .btn-danger:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 8px 30px rgba(239, 68, 68, 0.6);
-    }
-
-    .btn-secondary {
-      background: linear-gradient(135deg, #3b82f6, #2563eb);
-      color: white;
-      box-shadow: 0 4px 20px rgba(59, 130, 246, 0.4);
-      margin-bottom: 12px; /* Add margin between buttons and footer */
-    }
-
-    /* Style for the refresh button */
-    #refreshBtn {
-      background: linear-gradient(135deg, #8b5cf6, #7c3aed); /* Different color for distinction */
-      box-shadow: 0 4px 20px rgba(139, 92, 246, 0.4);
-    }
-
-    #refreshBtn:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 8px 30px rgba(139, 92, 246, 0.6);
-    }
-
-    .btn:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
-      transform: none !important;
-      box-shadow: none !important;
-    }
-
-    .btn:disabled::before {
-      display: none;
-    }
-
-    .footer {
-      margin-top: auto;
-      text-align: center;
-      padding-top: 20px;
-      border-top: 1px solid rgba(255, 255, 255, 0.1);
-    }
-
-    .footer-text {
-      font-size: 12px;
-      opacity: 0.7;
-      line-height: 1.4;
+    .status-card.recording .status-text {
+      color: #fff;
     }
 
     .wave-animation {
       display: flex;
       align-items: center;
       justify-content: center;
-      gap: 4px;
-      margin-top: 8px;
+      gap: 3px;
+      margin-top: 16px;
     }
 
     .wave {
-      width: 3px;
-      height: 20px;
-      background: #10b981;
-      border-radius: 2px;
-      animation: wave 1.5s ease-in-out infinite;
+      width: 2px;
+      height: 16px;
+      background: #fff;
+      border-radius: 1px;
+      animation: wave 1.2s ease-in-out infinite;
     }
 
     .wave:nth-child(2) { animation-delay: 0.1s; }
@@ -250,8 +105,117 @@
     .wave:nth-child(5) { animation-delay: 0.4s; }
 
     @keyframes wave {
-      0%, 40%, 100% { transform: scaleY(0.4); }
-      20% { transform: scaleY(1); }
+      0%, 100% { transform: scaleY(0.3); opacity: 0.4; }
+      50% { transform: scaleY(1); opacity: 1; }
+    }
+
+    .transcript-preview {
+      margin-top: 16px;
+      padding-top: 16px;
+      border-top: 1px solid #222;
+      font-size: 13px;
+      line-height: 1.6;
+      color: #aaa;
+      max-height: 120px;
+      overflow-y: auto;
+      text-align: left;
+    }
+
+    .transcript-preview::-webkit-scrollbar { width: 3px; }
+    .transcript-preview::-webkit-scrollbar-track { background: transparent; }
+    .transcript-preview::-webkit-scrollbar-thumb { background: #333; border-radius: 2px; }
+
+    .controls {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+
+    .btn {
+      flex: 1;
+      padding: 14px 20px;
+      border: 1px solid #333;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      background: transparent;
+      color: #fff;
+      letter-spacing: 0.01em;
+    }
+
+    .btn:hover:not(:disabled) {
+      background: #fff;
+      color: #000;
+      border-color: #fff;
+    }
+
+    .btn-primary {
+      background: #fff;
+      color: #000;
+      border-color: #fff;
+    }
+
+    .btn-primary:hover:not(:disabled) {
+      background: #ddd;
+      border-color: #ddd;
+    }
+
+    .btn-danger {
+      border-color: #333;
+      color: #fff;
+      background: transparent;
+    }
+
+    .btn-danger:hover:not(:disabled) {
+      background: #fff;
+      color: #000;
+      border-color: #fff;
+    }
+
+    .btn:disabled {
+      opacity: 0.25;
+      cursor: not-allowed;
+    }
+
+    .btn-action {
+      width: 100%;
+      padding: 14px 20px;
+      margin-bottom: 8px;
+      border: 1px solid #333;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      background: transparent;
+      color: #fff;
+      letter-spacing: 0.01em;
+    }
+
+    .btn-action:hover:not(:disabled) {
+      background: #fff;
+      color: #000;
+      border-color: #fff;
+    }
+
+    .btn-action:disabled {
+      opacity: 0.25;
+      cursor: not-allowed;
+    }
+
+    .footer {
+      margin-top: auto;
+      text-align: center;
+      padding-top: 20px;
+    }
+
+    .footer-text {
+      font-size: 11px;
+      color: #444;
+      line-height: 1.5;
+      letter-spacing: 0.01em;
     }
 
     .hidden {
@@ -259,11 +223,11 @@
     }
 
     .fade-in {
-      animation: fadeIn 0.3s ease-in;
+      animation: fadeIn 0.25s ease-out;
     }
 
     @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(10px); }
+      from { opacity: 0; transform: translateY(6px); }
       to { opacity: 1; transform: translateY(0); }
     }
   </style>
@@ -271,9 +235,7 @@
 <body>
   <div class="container">
     <div class="header">
-      <div class="logo">🎤</div>
       <div class="title">Audio Transcriber</div>
-      <div class="subtitle">Real-time speech to text</div>
     </div>
 
     <div class="status-card" id="statusCard">
@@ -281,7 +243,6 @@
         <span id="status-indicator" class="recording-indicator hidden"></span>
         <span id="status-text" class="status-text">Ready to transcribe</span>
       </div>
-      <div id="transcript-preview" class="transcript-preview hidden"></div>
       <div id="wave-animation" class="wave-animation hidden">
         <div class="wave"></div>
         <div class="wave"></div>
@@ -289,29 +250,30 @@
         <div class="wave"></div>
         <div class="wave"></div>
       </div>
+      <div id="transcript-preview" class="transcript-preview hidden"></div>
     </div>
 
     <div class="controls">
       <button id="playBtn" class="btn btn-primary">
-        <span class="btn-text">Start Recording</span>
+        <span class="btn-text">Record</span>
       </button>
       <button id="stopBtn" class="btn btn-danger" disabled>
         <span class="btn-text">Stop</span>
       </button>
     </div>
 
-    <button id="downloadBtn" class="btn btn-secondary hidden">
+    <button id="downloadBtn" class="btn-action hidden">
       <span class="btn-text">Download Transcript</span>
     </button>
 
-    <button id="refreshBtn" class="btn btn-secondary hidden">
-      <span class="btn-text">Refresh Transcript</span>
+    <button id="refreshBtn" class="btn-action hidden">
+      <span class="btn-text">Clear</span>
     </button>
 
     <div class="footer">
       <div class="footer-text">
-        All processing happens locally on your device.<br>
-        No data is sent to external servers.
+        All processing happens locally.<br>
+        No data leaves your device.
       </div>
     </div>
   </div>

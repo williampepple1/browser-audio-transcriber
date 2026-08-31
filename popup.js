@@ -34,12 +34,15 @@ document.addEventListener('DOMContentLoaded', function() {
     }
   });
 
-  // Also check storage for any existing transcript
-  chrome.storage.local.get(['currentTranscript', 'isFinal', 'isRecording'], function(result) {
+  chrome.storage.local.get(['currentTranscript', 'isRecording'], function(result) {
     if (result.currentTranscript && result.currentTranscript !== currentTranscript) {
       console.log('Found existing transcript in storage:', result.currentTranscript.length, 'characters');
       currentTranscript = result.currentTranscript;
-      updateTranscriptPreview(result.isFinal);
+      updateTranscriptPreview();
+    }
+    if (result.isRecording !== undefined && result.isRecording !== isRecording) {
+      isRecording = result.isRecording;
+      setRecordingState(isRecording);
     }
   });
 
@@ -142,7 +145,7 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Reset button state
     refreshBtn.disabled = false;
-    refreshBtn.querySelector('.btn-text').textContent = 'Refresh Transcript';
+    refreshBtn.querySelector('.btn-text').textContent = 'Clear';
     
     // Hide both buttons since there's no transcript
     downloadBtn.classList.add('hidden');
@@ -165,15 +168,13 @@ document.addEventListener('DOMContentLoaded', function() {
       waveAnimation.classList.remove('hidden');
       statusCard.classList.add('recording');
       downloadBtn.classList.add('hidden');
-      refreshBtn.classList.add('hidden'); // Hide refresh button during recording
+      refreshBtn.classList.add('hidden');
       
-      // Add fade-in animation
       statusCard.classList.add('fade-in');
     } else {
-      // Stopped state
       playBtn.disabled = false;
       stopBtn.disabled = true;
-      playBtn.querySelector('.btn-text').textContent = 'Start Recording';
+      playBtn.querySelector('.btn-text').textContent = 'Record';
       stopBtn.querySelector('.btn-text').textContent = 'Stop';
       
       statusIndicator.classList.add('hidden');
@@ -206,18 +207,19 @@ document.addEventListener('DOMContentLoaded', function() {
     notification.textContent = message;
     notification.style.cssText = `
       position: fixed;
-      top: 20px;
-      right: 20px;
-      background: ${type === 'success' ? '#10b981' : type === 'error' ? '#ef4444' : '#3b82f6'};
-      color: white;
-      padding: 12px 16px;
-      border-radius: 8px;
-      font-size: 14px;
+      bottom: 16px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: ${type === 'error' ? '#222' : '#fff'};
+      color: ${type === 'error' ? '#ff6b6b' : '#000'};
+      padding: 10px 20px;
+      border-radius: 6px;
+      font-size: 12px;
       font-weight: 500;
       z-index: 1000;
-      box-shadow: 0 4px 20px rgba(0,0,0,0.3);
       max-width: 300px;
       word-wrap: break-word;
+      letter-spacing: 0.01em;
     `;
     
     document.body.appendChild(notification);
@@ -225,13 +227,13 @@ document.addEventListener('DOMContentLoaded', function() {
     // Remove notification after 3 seconds
     setTimeout(() => {
       notification.style.opacity = '0';
-      notification.style.transform = 'translateX(100%)';
+      notification.style.transition = 'opacity 0.2s ease';
       setTimeout(() => {
         if (notification.parentNode) {
           notification.parentNode.removeChild(notification);
         }
-      }, 300);
-    }, 3000);
+      }, 200);
+    }, 2500);
   }
 
   // Listen for transcript updates from background script
@@ -250,11 +252,11 @@ document.addEventListener('DOMContentLoaded', function() {
         if (result.currentTranscript && result.currentTranscript !== currentTranscript) {
           console.log('Received transcript update from storage:', result.currentTranscript.length, 'characters', 'isFinal:', result.isFinal);
           currentTranscript = result.currentTranscript;
-          updateTranscriptPreview(result.isFinal);
+          updateTranscriptPreview();
         }
       });
     }
-  }, 1000); // Check every 1 second when recording
+  }, 1000);
 
   // Add hover effects for buttons
   [playBtn, stopBtn, downloadBtn, refreshBtn].forEach(btn => { // Add refreshBtn to the hover effects

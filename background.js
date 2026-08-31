@@ -1,7 +1,34 @@
 // Background service worker for audio transcription
 let isRecording = false;
 let currentTranscript = '';
+let recordingTabId = null;
 let recordingOperation = Promise.resolve();
+
+async function restoreState() {
+  const result = await chrome.storage.local.get(['currentTranscript', 'isRecording', 'recordingTabId']);
+  isRecording = result.isRecording || false;
+  currentTranscript = result.currentTranscript || '';
+  recordingTabId = result.recordingTabId || null;
+
+  if (isRecording && recordingTabId) {
+    try {
+      const tab = await chrome.tabs.get(recordingTabId);
+      if (!tab) {
+        await resetRecordingState();
+      }
+    } catch {
+      await resetRecordingState();
+    }
+  }
+}
+
+async function resetRecordingState() {
+  isRecording = false;
+  recordingTabId = null;
+  await setStoredState({ isRecording: false, recordingTabId: null });
+}
+
+restoreState();
 
 function runRecordingOperation(operation) {
   const nextOperation = recordingOperation.catch(() => {}).then(operation);
@@ -37,11 +64,9 @@ async function ensureContentScript(tabId) {
     console.log('Content script already injected or injection failed:', injectionError);
   }
 
-  // Give the content script listener a short moment to finish registering.
   await new Promise(resolve => setTimeout(resolve, 100));
 }
 
-// Start recording audio from the active tab
 async function startRecording() {
   try {
     if (isRecording) {
@@ -65,16 +90,18 @@ async function startRecording() {
 
     isRecording = true;
     currentTranscript = '';
+    recordingTabId = tab.id;
 
     await setStoredState({
       currentTranscript: '',
       isFinal: true,
-      isRecording: true
+      isRecording: true,
+      recordingTabId: tab.id
     });
 
     await chrome.tabs.sendMessage(tab.id, { action: 'recordingStarted' }).catch(() => {});
 
-    console.log('Recording started successfully');
+    console.log('Recording started successfully on tab', tab.id);
     return { success: true };
 
   } catch (error) {
@@ -83,34 +110,32 @@ async function startRecording() {
   }
 }
 
-// Stop recording
 async function stopRecording() {
   try {
     if (!isRecording) {
       await setStoredState({
         currentTranscript: currentTranscript,
         isFinal: true,
-        isRecording: false
+        isRecording: false,
+        recordingTabId: null
       });
 
       return { success: true, transcript: currentTranscript };
     }
 
     isRecording = false;
+    const tabId = recordingTabId;
+    recordingTabId = null;
 
-    // Get the active tab
-    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    
-    if (tab) {
+    if (tabId) {
       try {
-        // Send message to content script to stop recording
-        const response = await chrome.tabs.sendMessage(tab.id, { action: 'stopRecording' });
-        
+        const response = await chrome.tabs.sendMessage(tabId, { action: 'stopRecording' });
+
         if (!response || !response.success) {
           console.warn('Failed to stop recording in content script');
         }
 
-        await chrome.tabs.sendMessage(tab.id, { action: 'recordingStopped' }).catch(() => {});
+        await chrome.tabs.sendMessage(tabId, { action: 'recordingStopped' }).catch(() => {});
       } catch (messageError) {
         console.warn('Could not send stop message to content script:', messageError);
       }
@@ -121,7 +146,8 @@ async function stopRecording() {
     await setStoredState({
       currentTranscript: currentTranscript,
       isFinal: true,
-      isRecording: false
+      isRecording: false,
+      recordingTabId: null
     });
 
     return { success: true, transcript: currentTranscript };
@@ -174,11 +200,13 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 async function clearTranscript() {
   currentTranscript = '';
   isRecording = false;
+  recordingTabId = null;
 
   await setStoredState({
     currentTranscript: '',
     isFinal: true,
-    isRecording: false
+    isRecording: false,
+    recordingTabId: null
   });
 
   console.log('Transcript cleared from background script');
@@ -215,9 +243,11 @@ chrome.runtime.onInstalled.addListener(() => {
   console.log('Audio Transcriber extension installed');
 });
 
-// Handle tab updates to ensure proper audio capture
-chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
-  if (changeInfo.status === 'complete' && isRecording) {
-    console.log('Tab updated, ensuring recording continues');
+chrome.tabs.onRemoved.addListener((tabId) => {
+  if (tabId === recordingTabId) {
+    console.log('Recording tab was closed, stopping recording');
+    isRecording = false;
+    recordingTabId = null;
+    setStoredState({ isRecording: false, recordingTabId: null });
   }
 });
