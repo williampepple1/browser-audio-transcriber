@@ -367,23 +367,23 @@ function showRecordingIndicator() {
     recordingIndicator = document.createElement('div');
     recordingIndicator.style.cssText = `
       position: fixed;
-      top: 20px;
-      right: 20px;
-      width: 20px;
-      height: 20px;
-      background: #f44336;
+      top: 16px;
+      right: 16px;
+      width: 10px;
+      height: 10px;
+      background: #fff;
       border-radius: 50%;
       z-index: 10000;
-      animation: pulse 1.5s infinite;
-      box-shadow: 0 0 10px rgba(244, 67, 54, 0.5);
+      animation: audioTranscriberPulse 2s ease-in-out infinite;
+      box-shadow: 0 0 6px rgba(255, 255, 255, 0.4);
     `;
     
     const style = document.createElement('style');
+    style.id = 'audio-transcriber-pulse-style';
     style.textContent = `
-      @keyframes pulse {
-        0% { opacity: 1; transform: scale(1); }
-        50% { opacity: 0.5; transform: scale(1.1); }
-        100% { opacity: 1; transform: scale(1); }
+      @keyframes audioTranscriberPulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.3; }
       }
     `;
     document.head.appendChild(style);
@@ -395,6 +395,8 @@ function hideRecordingIndicator() {
   if (recordingIndicator) {
     recordingIndicator.remove();
     recordingIndicator = null;
+    const style = document.getElementById('audio-transcriber-pulse-style');
+    if (style) style.remove();
   }
 }
 

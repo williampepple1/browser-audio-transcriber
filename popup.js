@@ -49,7 +49,7 @@ document.addEventListener('DOMContentLoaded', function() {
   playBtn.addEventListener('click', function() {
     // Add loading state
     playBtn.disabled = true;
-    playBtn.querySelector('.btn-text').textContent = 'Starting...';
+    playBtn.querySelector('.btn-text').textContent = 'Starting';
     
     chrome.runtime.sendMessage({action: 'startRecording'}, function(response) {
       if (response && response.success) {
@@ -67,7 +67,7 @@ document.addEventListener('DOMContentLoaded', function() {
   stopBtn.addEventListener('click', function() {
     // Add loading state
     stopBtn.disabled = true;
-    stopBtn.querySelector('.btn-text').textContent = 'Stopping...';
+    stopBtn.querySelector('.btn-text').textContent = 'Stopping';
     
     chrome.runtime.sendMessage({action: 'stopRecording'}, function(response) {
       if (response && response.success) {
@@ -88,7 +88,7 @@ document.addEventListener('DOMContentLoaded', function() {
     if (currentTranscript) {
       // Add loading state
       downloadBtn.disabled = true;
-      downloadBtn.querySelector('.btn-text').textContent = 'Downloading...';
+      downloadBtn.querySelector('.btn-text').textContent = 'Downloading';
       
       const blob = new Blob([currentTranscript], {type: 'text/plain'});
       const url = URL.createObjectURL(blob);
@@ -122,7 +122,7 @@ document.addEventListener('DOMContentLoaded', function() {
   refreshBtn.addEventListener('click', function() {
     // Add loading state
     refreshBtn.disabled = true;
-    refreshBtn.querySelector('.btn-text').textContent = 'Refreshing...';
+    refreshBtn.querySelector('.btn-text').textContent = 'Clearing';
     
     // Clear the current transcript
     currentTranscript = '';
